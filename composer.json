@@ -1,5 +1,5 @@
 {
-    "name": "bitpay/php-client",
+    "name": "medinekorkut/php-client",
     "description": "PHP Library to work with the new cryptographically secure BitPay API",
     "license": "MIT",
     "minimum-stability": "stable",
