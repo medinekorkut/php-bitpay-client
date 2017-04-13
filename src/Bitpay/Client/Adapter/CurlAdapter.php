@@ -108,7 +108,7 @@ class CurlAdapter implements AdapterInterface
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FORBID_REUSE   => 1,
             CURLOPT_FRESH_CONNECT  => 1,
-            CURLOPT_HEADER         => true,
+            CURLOPT_HEADER         => false,
         );
     }
 }

@@ -9,5 +9,4 @@
 /.settings/
 .project
 .buildpath
-composer.lock
 composer.phar
