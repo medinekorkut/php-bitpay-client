@@ -36,7 +36,7 @@ class Response implements ResponseInterface
     public function __construct($raw = null)
     {
         $this->headers = array();
-        $this->raw     = $raw;
+        $this->raw = $raw;
     }
 
     /**
@@ -55,13 +55,16 @@ class Response implements ResponseInterface
     public static function createFromRawResponse($rawResponse)
     {
         $response = new self($rawResponse);
-        $lines    = preg_split('/(\\r?\\n)/', $rawResponse);
+        $lines = preg_split('/(\\r?\\n)/', $rawResponse);
         $linesLen = count($lines);
+        $response->setBody(implode("\n", $lines));
+        $response->setStatusCode(200);
+        return $response;
 
         for ($i = 0; $i < $linesLen; $i++) {
             if (0 == $i) {
                 preg_match('/^HTTP\/(\d\.\d)\s(\d+)\s(.+)/', $lines[$i], $statusLine);
-    
+
                 $response->setStatusCode($statusCode = $statusLine[2]);
 
                 continue;

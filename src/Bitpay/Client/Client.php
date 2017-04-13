@@ -7,15 +7,16 @@
 namespace Bitpay\Client;
 
 use Bitpay\Client\Adapter\AdapterInterface;
-use Bitpay\Network\NetworkInterface;
-use Bitpay\TokenInterface;
 use Bitpay\InvoiceInterface;
+use Bitpay\Network\NetworkInterface;
 use Bitpay\PayoutInterface;
-use Bitpay\Util\Util;
-use Bitpay\PublicKey;
 use Bitpay\PrivateKey;
+use Bitpay\PublicKey;
+use Bitpay\TokenInterface;
+use Bitpay\Util\Util;
 
 date_default_timezone_set('UTC');
+
 /**
  * Client used to send requests and receive responses for BitPay's Web API.
  *
@@ -122,37 +123,37 @@ class Client implements ClientInterface
         $request->setMethod(Request::METHOD_POST);
         $request->setPath('invoices');
 
-        $currency     = $invoice->getCurrency();
-        $item         = $invoice->getItem();
-        $buyer        = $invoice->getBuyer();
+        $currency = $invoice->getCurrency();
+        $item = $invoice->getItem();
+        $buyer = $invoice->getBuyer();
         $buyerAddress = $buyer->getAddress();
 
         $this->checkPriceAndCurrency($item->getPrice(), $currency->getCode());
 
         $body = array(
-            'price'             => $item->getPrice(),
-            'currency'          => $currency->getCode(),
-            'posData'           => $invoice->getPosData(),
-            'notificationURL'   => $invoice->getNotificationUrl(),
-            'transactionSpeed'  => $invoice->getTransactionSpeed(),
+            'price' => $item->getPrice(),
+            'currency' => $currency->getCode(),
+            'posData' => $invoice->getPosData(),
+            'notificationURL' => $invoice->getNotificationUrl(),
+            'transactionSpeed' => $invoice->getTransactionSpeed(),
             'fullNotifications' => $invoice->isFullNotifications(),
             'notificationEmail' => $invoice->getNotificationEmail(),
-            'redirectURL'       => $invoice->getRedirectUrl(),
-            'orderID'           => $invoice->getOrderId(),
-            'itemDesc'          => $item->getDescription(),
-            'itemCode'          => $item->getCode(),
-            'physical'          => $item->isPhysical(),
-            'buyerName'         => trim(sprintf('%s %s', $buyer->getFirstName(), $buyer->getLastName())),
-            'buyerAddress1'     => isset($buyerAddress[0]) ? $buyerAddress[0] : '',
-            'buyerAddress2'     => isset($buyerAddress[1]) ? $buyerAddress[1] : '',
-            'buyerCity'         => $buyer->getCity(),
-            'buyerState'        => $buyer->getState(),
-            'buyerZip'          => $buyer->getZip(),
-            'buyerCountry'      => $buyer->getCountry(),
-            'buyerEmail'        => $buyer->getEmail(),
-            'buyerPhone'        => $buyer->getPhone(),
-            'guid'              => Util::guid(),
-            'token'             => $this->token->getToken(),
+            'redirectURL' => $invoice->getRedirectUrl(),
+            'orderID' => $invoice->getOrderId(),
+            'itemDesc' => $item->getDescription(),
+            'itemCode' => $item->getCode(),
+            'physical' => $item->isPhysical(),
+            'buyerName' => trim(sprintf('%s %s', $buyer->getFirstName(), $buyer->getLastName())),
+            'buyerAddress1' => isset($buyerAddress[0]) ? $buyerAddress[0] : '',
+            'buyerAddress2' => isset($buyerAddress[1]) ? $buyerAddress[1] : '',
+            'buyerCity' => $buyer->getCity(),
+            'buyerState' => $buyer->getState(),
+            'buyerZip' => $buyer->getZip(),
+            'buyerCountry' => $buyer->getCountry(),
+            'buyerEmail' => $buyer->getEmail(),
+            'buyerPhone' => $buyer->getPhone(),
+            'guid' => Util::guid(),
+            'token' => $this->token->getToken(),
         );
 
         $request->setBody(json_encode($body));
@@ -160,7 +161,7 @@ class Client implements ClientInterface
         $this->addIdentityHeader($request);
         $this->addSignatureHeader($request);
 
-        $this->request  = $request;
+        $this->request = $request;
         $this->response = $this->sendRequest($request);
 
         $body = json_decode($this->response->getBody(), true);
@@ -190,8 +191,12 @@ class Client implements ClientInterface
             ->setCurrentTime($data['currentTime'] / 1000)
             ->setBtcPaid($data['btcPaid'])
             ->setRate($data['rate'])
-            ->setExceptionStatus($data['exceptionStatus'])
-            ->setPaymentUrls($paymentUrls->setUrls($data['paymentUrls']));
+            ->setExceptionStatus($data['exceptionStatus']);
+
+        if (isset($data['paymentUrls'])) {
+            $invoice
+                ->setPaymentUrls($paymentUrls->setUrls($data['paymentUrls']));
+        }
 
         return $invoice;
     }
@@ -243,23 +248,23 @@ class Client implements ClientInterface
         $request->setMethod($request::METHOD_POST);
         $request->setPath('payouts');
 
-        $amount         = $payout->getAmount();
-        $currency       = $payout->getCurrency();
-        $effectiveDate  = $payout->getEffectiveDate();
-        $token          = $payout->getToken();
+        $amount = $payout->getAmount();
+        $currency = $payout->getCurrency();
+        $effectiveDate = $payout->getEffectiveDate();
+        $token = $payout->getToken();
 
         $body = array(
-            'token'         => $token->getToken(),
-            'amount'        => $amount,
-            'currency'      => $currency->getCode(),
-            'instructions'  => array(),
+            'token' => $token->getToken(),
+            'amount' => $amount,
+            'currency' => $currency->getCode(),
+            'instructions' => array(),
             'effectiveDate' => $effectiveDate,
             'pricingMethod' => $payout->getPricingMethod(),
-            'guid'          => Util::guid(),
+            'guid' => Util::guid(),
         );
 
         // Optional
-        foreach (array('reference','notificationURL','notificationEmail') as $value) {
+        foreach (array('reference', 'notificationURL', 'notificationEmail') as $value) {
             $function = 'get' . ucfirst($value);
 
             if ($payout->$function() != null) {
@@ -270,9 +275,9 @@ class Client implements ClientInterface
         // Add instructions
         foreach ($payout->getInstructions() as $instruction) {
             $body['instructions'][] = array(
-                'label'   => $instruction->getLabel(),
+                'label' => $instruction->getLabel(),
                 'address' => $instruction->getAddress(),
-                'amount'  => $instruction->getAmount()
+                'amount' => $instruction->getAmount()
             );
         }
 
@@ -281,7 +286,7 @@ class Client implements ClientInterface
         $this->addIdentityHeader($request);
         $this->addSignatureHeader($request);
 
-        $this->request  = $request;
+        $this->request = $request;
         $this->response = $this->sendRequest($request);
 
         $body = json_decode($this->response->getBody(), true);
@@ -319,15 +324,15 @@ class Client implements ClientInterface
         $request->setMethod(Request::METHOD_GET);
 
         $path = 'payouts?token='
-                    . $this->token->getToken()
-                    . (($status == null) ? '' : '&status=' . $status);
+            . $this->token->getToken()
+            . (($status == null) ? '' : '&status=' . $status);
 
         $request->setPath($path);
 
         $this->addIdentityHeader($request);
         $this->addSignatureHeader($request);
 
-        $this->request  = $request;
+        $this->request = $request;
         $this->response = $this->sendRequest($this->request);
 
         $body = json_decode($this->response->getBody(), true);
@@ -401,7 +406,7 @@ class Client implements ClientInterface
         $this->addIdentityHeader($request);
         $this->addSignatureHeader($request);
 
-        $this->request  = $request;
+        $this->request = $request;
         $this->response = $this->sendRequest($this->request);
 
         $body = json_decode($this->response->getBody(), true);
@@ -429,7 +434,7 @@ class Client implements ClientInterface
         $this->addIdentityHeader($request);
         $this->addSignatureHeader($request);
 
-        $this->request  = $request;
+        $this->request = $request;
         $this->response = $this->sendRequest($this->request);
 
         $body = json_decode($this->response->getBody(), true);
@@ -438,7 +443,7 @@ class Client implements ClientInterface
             throw new \Exception('Error with request: no data returned');
         }
 
-        $data   = $body['data'];
+        $data = $body['data'];
         $payout = new \Bitpay\Payout();
 
         $payout
@@ -495,7 +500,7 @@ class Client implements ClientInterface
         $this->addIdentityHeader($request);
         $this->addSignatureHeader($request);
 
-        $this->request  = $request;
+        $this->request = $request;
         $this->response = $this->sendRequest($this->request);
 
         $body = json_decode($this->response->getBody(), true);
@@ -507,7 +512,7 @@ class Client implements ClientInterface
         $tokens = array();
 
         array_walk($body['data'], function ($value, $key) use (&$tokens) {
-            $key   = current(array_keys($value));
+            $key = current(array_keys($value));
             $value = current(array_values($value));
             $token = new \Bitpay\Token();
             $token
@@ -666,7 +671,7 @@ class Client implements ClientInterface
             throw new \Exception('[ERROR] In Client::addIdentityHeader(): No public key value found. Please set your kublic key first before you can add the x-identity header.');
         }
 
-        $request->setHeader('x-identity', (string) $this->publicKey);
+        $request->setHeader('x-identity', (string)$this->publicKey);
     }
 
     /**
