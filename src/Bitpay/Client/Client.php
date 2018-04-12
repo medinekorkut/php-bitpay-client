@@ -111,6 +111,39 @@ class Client implements ClientInterface
     /**
      * @inheritdoc
      */
+    protected function fillInvoiceData(InvoiceInterface $invoice, $data)
+    {
+        # BitPay returns the invoice time in milliseconds. PHP's DateTime object expects the time to be in seconds
+        $invoiceTime = is_numeric($data['invoiceTime']) ? intval($data['invoiceTime']/1000) : $data['invoiceTime'];
+        $expirationTime = is_numeric($data['expirationTime']) ? intval($data['expirationTime']/1000) : $data['expirationTime'];
+        $currentTime = is_numeric($data['currentTime']) ? intval($data['currentTime']/1000) : $data['currentTime'];
+        
+        $invoiceToken = new \Bitpay\Token();
+        $invoice
+            ->setToken($invoiceToken->setToken($data['token']))
+            ->setUrl($data['url'])
+            ->setPosData(array_key_exists('posData', $data) ? $data['posData'] : '')
+            ->setStatus($data['status'])
+            ->setPrice($data['price'])
+            ->setCurrency(new \Bitpay\Currency($data['currency']))
+            ->setOrderId(array_key_exists('orderId', $data) ? $data['orderId'] : '')
+            ->setInvoiceTime($invoiceTime)
+            ->setExpirationTime($expirationTime)
+            ->setCurrentTime($currentTime)
+            ->setId($data['id'])
+            ->setAmountPaid(array_key_exists('amountPaid', $data) ? $data['amountPaid'] : '')
+            ->setExceptionStatus($data['exceptionStatus'])
+            ->setRefundAddresses(array_key_exists('refundAddresses', $data) ? $data['refundAddresses'] : '')
+            ->setTransactionCurrency(array_key_exists('transactionCurrency', $data) ? $data['transactionCurrency'] : null)
+            ->setPaymentTotals(array_key_exists('paymentTotals', $data) ? $data['paymentTotals'] : '')
+            ->setPaymentSubtotals(array_key_exists('paymentSubtotals', $data) ? $data['paymentSubtotals'] : '')
+            ->setExchangeRates(array_key_exists('exchangeRates', $data) ? $data['exchangeRates'] : '');
+        return $invoice;
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function createInvoice(InvoiceInterface $invoice)
     {
         $request = $this->createNewRequest();
@@ -131,6 +164,7 @@ class Client implements ClientInterface
             'notificationURL'   => $invoice->getNotificationUrl(),
             'transactionSpeed'  => $invoice->getTransactionSpeed(),
             'fullNotifications' => $invoice->isFullNotifications(),
+            'extendedNotifications' => $invoice->isExtendedNotifications(),
             'notificationEmail' => $invoice->getNotificationEmail(),
             'redirectURL'       => $invoice->getRedirectUrl(),
             'orderID'           => $invoice->getOrderId(),
@@ -146,6 +180,7 @@ class Client implements ClientInterface
             'buyerCountry'      => $buyer->getCountry(),
             'buyerEmail'        => $buyer->getEmail(),
             'buyerPhone'        => $buyer->getPhone(),
+            'buyerNotify'       => $buyer->getNotify(),
             'guid'              => Util::guid(),
             'nonce'             => Util::nonce(),
             'token'             => $this->token->getToken(),
@@ -163,23 +198,11 @@ class Client implements ClientInterface
         $error_message = (!empty($body['errors'])) ? $body['errors'] : $error_message;
         $error_message = (is_array($error_message)) ? implode("\n", $error_message) : $error_message;
         if (false !== $error_message) {
-            throw new \Exception($error_message);
+            throw new \Bitpay\Client\BitpayException($error_message);
         }
         $data = $body['data'];
-        $invoiceToken = new \Bitpay\Token();
-        $invoice
-            ->setToken($invoiceToken->setToken($data['token']))
-            ->setId($data['id'])
-            ->setUrl($data['url'])
-            ->setStatus($data['status'])
-            ->setBtcPrice($data['btcPrice'])
-            ->setPrice($data['price'])
-            ->setInvoiceTime($data['invoiceTime'])
-            ->setExpirationTime($data['expirationTime'])
-            ->setCurrentTime($data['currentTime'])
-            ->setBtcPaid($data['btcPaid'])
-            ->setRate($data['rate'])
-            ->setExceptionStatus($data['exceptionStatus']);
+
+        $invoice = $this->fillInvoiceData($invoice, $data);
 
         return $invoice;
     }
@@ -195,7 +218,7 @@ class Client implements ClientInterface
         $this->response = $this->sendRequest($this->request);
         $body           = json_decode($this->response->getBody(), true);
         if (empty($body['data'])) {
-            throw new \Exception('Error with request: no data returned');
+            throw new \Bitpay\Client\BitpayException('Error with request: no data returned');
         }
         $currencies = $body['data'];
         array_walk($currencies, function (&$value, $key) {
@@ -270,7 +293,7 @@ class Client implements ClientInterface
         $error_message = (!empty($body['errors'])) ? $body['errors'] : $error_message;
         $error_message = (is_array($error_message)) ? implode("\n", $error_message) : $error_message;
         if (false !== $error_message) {
-            throw new \Exception($error_message);
+            throw new \Bitpay\Client\BitpayException($error_message);
         }
 
         $data = $body['data'];
@@ -310,7 +333,7 @@ class Client implements ClientInterface
         $error_message = (!empty($body['errors'])) ? $body['errors'] : $error_message;
         $error_message = (is_array($error_message)) ? implode("\n", $error_message) : $error_message;
         if (false !== $error_message) {
-            throw new \Exception($error_message);
+            throw new \Bitpay\Client\BitpayException($error_message);
         }
 
         $payouts = array();
@@ -378,7 +401,7 @@ class Client implements ClientInterface
 
         $body           = json_decode($this->response->getBody(), true);
         if (empty($body['data'])) {
-            throw new \Exception('Error with request: no data returned');
+            throw new \Bitpay\Client\BitpayException('Error with request: no data returned');
         }
 
         $data   = $body['data'];
@@ -404,7 +427,7 @@ class Client implements ClientInterface
 
         $body           = json_decode($this->response->getBody(), true);
         if (empty($body['data'])) {
-            throw new \Exception('Error with request: no data returned');
+            throw new \Bitpay\Client\BitpayException('Error with request: no data returned');
         }
         $data   = $body['data'];
 
@@ -466,7 +489,7 @@ class Client implements ClientInterface
         $this->response = $this->sendRequest($this->request);
         $body           = json_decode($this->response->getBody(), true);
         if (empty($body['data'])) {
-            throw new \Exception('Error with request: no data returned');
+            throw new \Bitpay\Client\BitpayException('Error with request: no data returned');
         }
 
         $tokens = array();
@@ -491,7 +514,7 @@ class Client implements ClientInterface
     public function createToken(array $payload = array())
     {
         if (isset($payload['pairingCode']) && 1 !== preg_match('/^[a-zA-Z0-9]{7}$/', $payload['pairingCode'])) {
-            throw new ArgumentException("pairing code is not legal");
+            throw new \InvalidArgumentException("pairing code is not legal");
         }
 
         $this->request = $this->createNewRequest();
@@ -557,7 +580,7 @@ class Client implements ClientInterface
     {
         $this->request = $this->createNewRequest();
         $this->request->setMethod(Request::METHOD_GET);
-        if ($this->token->getFacade() === 'merchant') {
+        if ($this->token && $this->token->getFacade() === 'merchant') {
             $this->request->setPath(sprintf('invoices/%s?token=%s', $invoiceId, $this->token->getToken()));
             $this->addIdentityHeader($this->request);
             $this->addSignatureHeader($this->request);
@@ -568,32 +591,20 @@ class Client implements ClientInterface
         $body = json_decode($this->response->getBody(), true);
 
         if (isset($body['error'])) {
-            throw new \Exception($body['error']);
+            throw new \Bitpay\Client\BitpayException($body['error']);
         }
 
         $data = $body['data'];
-
+        
         $invoice = new \Bitpay\Invoice();
-        $invoiceToken = new \Bitpay\Token();
-        $invoice
-            ->setToken($invoiceToken->setToken($data['token']))
-            ->setUrl($data['url'])
-            ->setPosData($data['posData'])
-            ->setStatus($data['status'])
-            ->setBtcPrice($data['btcPrice'])
-            ->setPrice($data['price'])
-            ->setCurrency(new \Bitpay\Currency($data['currency']))
-            ->setOrderId($data['orderId'])
-            ->setInvoiceTime($data['invoiceTime'])
-            ->setExpirationTime($data['expirationTime'])
-            ->setCurrentTime($data['currentTime'])
-            ->setId($data['id'])
-            ->setBtcPaid($data['btcPaid'])
-            ->setRate($data['rate'])
-            ->setExceptionStatus($data['exceptionStatus']);
+        $invoice = $this->fillInvoiceData($invoice, $data);
 
         return $invoice;
     }
+
+
+    
+
 
     /**
      * @param RequestInterface $request
@@ -615,7 +626,7 @@ class Client implements ClientInterface
     protected function addIdentityHeader(RequestInterface $request)
     {
         if (null === $this->publicKey) {
-            throw new \Exception('Please set your Public Key.');
+            throw new \Bitpay\Client\BitpayException('Please set your Public Key.');
         }
 
         $request->setHeader('x-identity', (string) $this->publicKey);
@@ -627,7 +638,7 @@ class Client implements ClientInterface
     protected function addSignatureHeader(RequestInterface $request)
     {
         if (null === $this->privateKey) {
-            throw new \Exception('Please set your Private Key');
+            throw new \Bitpay\Client\BitpayException('Please set your Private Key');
         }
 
         if (true == property_exists($this->network, 'isPortRequiredInUrl')) {
@@ -689,8 +700,11 @@ class Client implements ClientInterface
         } else {
             $decimalPrecision = strlen(substr($price, $decimalPosition + 1));
         }
-        if (($decimalPrecision > 2 && $currency != 'BTC') || $decimalPrecision > 6) {
-            throw new \Exception('Incorrect price format or currency type.');
+        if (($currency != 'BCH' && $currency != 'BTC') && $decimalPrecision > 2) {
+            throw new \Bitpay\Client\BitpayException('Incorrect price format or currency type.');
+        }
+        elseif ($decimalPrecision > 6) {
+            throw new \Bitpay\Client\BitpayException('Incorrect price format or currency type.');
         }
     }
 }
